@@ -129,7 +129,7 @@ with left_col:
             # Slider for secretion/reabsorption adjustment in mL/min
             CL_adj_mL_min = st.slider(
                 "Adjust renal clearance for secretion (+) / reabsorption (-) (mL/min)",
-                -50.0, 50.0, 0.0, step=1.0
+                -200.0, 200.0, 0.0, step=1.0
             )
             
             # Convert to L/h
