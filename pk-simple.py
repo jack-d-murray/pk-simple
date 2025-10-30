@@ -22,6 +22,7 @@ st.markdown(
         border: 1px solid #c3d1f0;
         box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
         text-align:left;
+        color:#000000;
     ">
         <h2 style="margin-top:0; text-align:center;">💊 PK-SIMple 💊</h2>
         <p style="margin-bottom:10px;">
