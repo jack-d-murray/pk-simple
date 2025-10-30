@@ -123,13 +123,13 @@ with left_col:
             # Slider for GFR in mL/min
             GFR_mL_min = st.slider(
                 r"Glomerular filtration rate $GFR$ (mL/min)", 
-                0.0, 150.0, 100.0, step=1.0
+                0.0, 120.0, 100.0, step=1.0
             )
             
             # Slider for secretion/reabsorption adjustment in mL/min
             CL_adj_mL_min = st.slider(
                 "Adjust renal clearance for secretion (+) / reabsorption (-) (mL/min)",
-                -200.0, 200.0, 0.0, step=1.0
+                -120.0, 600.0, 0.0, step=1.0
             )
             
             # Convert to L/h
