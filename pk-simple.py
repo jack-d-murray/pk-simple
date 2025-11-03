@@ -161,12 +161,14 @@ with left_col:
                 if st.button("Add enzyme"):
                     if enzyme_name:
                         st.session_state["enzymes"][enzyme_name] = float(enzyme_cl)
+                        st.rerun()
                 if st.session_state["enzymes"]:
                     for enz, val in list(st.session_state["enzymes"].items()):
                         cols = st.columns([3,1])
                         cols[0].write(f"{enz}: {val:.2f} L/h")
                         if cols[1].button(f"Remove {enz}"):
                             st.session_state["enzymes"].pop(enz)
+                            st.rerun()
             total_enzyme_CL = sum(st.session_state["enzymes"].values())
         CL = CL_renal + CL_hepatic + total_enzyme_CL
         k = CL / max(Vd, EPS)
