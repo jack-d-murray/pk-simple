@@ -27,13 +27,21 @@ st.markdown(
         <h2 style="margin-top:0; text-align:center;">💊 PK-SIMple 💊</h2>
         <p style="margin-bottom:10px;">
         This interactive tool was developed by pharmaceutics staff and researchers at the <strong>School of Pharmacy, University College Cork (UCC)</strong> 
-        to help teach the fundamental principles of pharmacokinetics. It implements a one-compartment model with first-order absorption and elimination.
+        to help teach the fundamental principles of pharmacokinetics. It implements a one-compartment model with first-order absorption and elimination. Features include:
         </p>
+        <ul style="margin-top:0; margin-bottom:0;">
+            <li>Options for IV bolus, IV infusion, and extravascular (oral) dosing.</li>
+            <li>Simulations of repeated dosing and chronic accumulation.</li>
+            <li>Adjustable glomerular filtration rate, renal secretion/reabsorption, hepatic blood flow, and intrinsic clearance.</li>
+            <li>User-defined enzymes to simulate drug-drug interactions and genetic variability.</li>
+            <li>Calculation of volume of distribution based on fractions unbound in plasma and tissues.</li>
+            <li>Automatic detection of flip-flop pharmacokinetics for drugs with low absorption rate constants.</li>
+            <li>Downloadable plots of plasma concentration and ln(Cp).</li>
+        </ul>
     </div>
     """,
     unsafe_allow_html=True
 )
-
 # ---------------- LAYOUT ----------------
 left_col, right_col = st.columns([1, 1])
 
