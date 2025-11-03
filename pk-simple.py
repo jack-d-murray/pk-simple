@@ -82,9 +82,13 @@ with left_col:
     if Vd_mode == "Fixed $V_d$":
         Vd = st.number_input("Volume of distribution $V_d$ (L)", 1.0, 500.0, 50.0, step=1.0)
         fu = 1.0
+        st.warning(
+        "⚠️ Fraction unbound ($f_u$) not specified — assuming $f_u = 1.0$ (complete plasma unbinding). "
+        "This will affect calculation of renal clearance from glomerular filtration in Renal-Hepatic Mode."
+        )
     else:
         Vp = st.number_input("Plasma volume $V_p$ (L)", 1.0, 10.0, 3.0, step=0.1)
-        Vt = st.number_input("Tissue volume $V_t$ (L)", 1.0, 500.0, 40.0, step=1.0)
+        Vt = st.number_input("Tissue volume $V_t$ (L)", 1.0, 500.0, 37.0, step=1.0)
         fu = st.slider(r"Fraction unbound in plasma $f_u$", 0.0, 1.0, 0.9, step=0.01)
         fut = st.slider(r"Fraction unbound in tissue $f_{ut}$", 0.0, 1.0, 0.8, step=0.01)
         Vd = Vp + Vt * (fu / max(fut, EPS))
