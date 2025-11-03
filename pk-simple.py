@@ -79,6 +79,10 @@ with left_col:
     if Vd_mode == "Fixed $V_d$":
         Vd = st.number_input("Volume of distribution $V_d$ (L)", 1.0, 500.0, st.session_state.get("Vd", 50.0), key="Vd")
         fu = 1.0
+        st.warning(
+        "⚠️ Fraction unbound ($f_u$) not specified — assuming $f_u = 1.0$. "
+        "This will affect calculation of renal clearance from glomerular filtration in Renal-Hepatic Mode."
+        )
     else:
         Vp = st.number_input("Plasma volume $V_p$ (L)", 1.0, 10.0, 3.0, key="Vp")
         Vt = st.number_input("Tissue volume $V_t$ (L)", 1.0, 500.0, 37.0, key="Vt")
