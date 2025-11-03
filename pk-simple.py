@@ -11,9 +11,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ---------------- PREAMBLE ----------------
-st.markdown(
-    """
+# ---------------- CACHED STATIC HTML ----------------
+@st.cache_resource
+def get_preamble_html():
+    """Return the static introductory HTML for the app."""
+    return """
     <div style="
         width:100%; 
         padding:20px; 
@@ -39,9 +41,34 @@ st.markdown(
             <li>Downloadable plots of plasma concentration and ln(Cp).</li>
         </ul>
     </div>
-    """,
-    unsafe_allow_html=True
-)
+    """
+
+@st.cache_resource
+def get_footer_html():
+    """Return the footer HTML block."""
+    return """
+    <style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #f0f2f6;
+        color: #333;
+        text-align: center;
+        padding: 5px 0;
+        font-size: 12px;
+        opacity: 0.8;
+    }
+    </style>
+    <div class="footer">
+        &copy; 2025  <a href="https://www.ucc.ie/en/pharmacy/" target="_blank">School of Pharmacy, University College Cork</a>.
+    </div>
+    """
+
+# ---------------- PREAMBLE ----------------
+st.markdown(get_preamble_html(), unsafe_allow_html=True)
+
 # ---------------- LAYOUT ----------------
 left_col, right_col = st.columns([1, 1])
 
@@ -67,10 +94,12 @@ with left_col:
         )
         if bio_method == "Directly specify F":
             F = st.slider("Bioavailability $F$", 0.0, 1.0, st.session_state.get("F", 1.0), step=0.01, key="F")
+            st.warning("⚠️ The calculated hepatic extraction ratio will not change a directly specified bioavailability.")
         else:
             Fa = st.slider("Fraction absorbed $F_a$", 0.0, 1.0, 1.0, step=0.01, key="Fa")
             Fg = st.slider(r"Fraction escaping gut metabolism $F_g$", 0.0, 1.0, 1.0, step=0.01, key="Fg")
             F = Fa * Fg
+            st.warning("⚠️ Hepatic clearance must be calculated from $CL_{int}$ and $Q_h$ in order for $E_h$ to modify oral bioavailability.")
         ka = st.number_input(r"Absorption rate constant $k_a$ (h⁻¹)", 0.0, 5.0, st.session_state.get("ka", 1.0), key="ka")
 
     # ---------- DISTRIBUTION ----------
@@ -80,8 +109,8 @@ with left_col:
         Vd = st.number_input("Volume of distribution $V_d$ (L)", 1.0, 500.0, st.session_state.get("Vd", 50.0), key="Vd")
         fu = 1.0
         st.warning(
-        "⚠️ Fraction unbound ($f_u$) not specified — assuming $f_u = 1.0$. "
-        "This will affect calculation of renal clearance from glomerular filtration in Renal-Hepatic Mode."
+            "⚠️ Fraction unbound ($f_u$) not specified — assuming $f_u = 1.0$. "
+            "This will affect calculation of renal clearance from glomerular filtration in Renal-Hepatic Mode."
         )
     else:
         Vp = st.number_input("Plasma volume $V_p$ (L)", 1.0, 10.0, 3.0, key="Vp")
@@ -89,6 +118,14 @@ with left_col:
         fu = st.slider(r"Fraction unbound in plasma $f_u$", 0.0, 1.0, 0.9, step=0.01, key="fu")
         fut = st.slider(r"Fraction unbound in tissue $f_{ut}$", 0.0, 1.0, 0.8, step=0.01, key="fut")
         Vd = Vp + Vt * (fu / max(fut, EPS))
+
+        if fut < 0.01:
+            st.warning("⚠️ Very low tissue unbound fraction (fut < 0.01) may cause unrealistically large Vd.")
+        if fu < 0.01:
+            st.warning("⚠️ Very low plasma unbound fraction (fu < 0.01) may indicate extensive protein binding.")
+        if Vd > 1000:
+            st.warning("⚠️ Calculated Vd exceeds 1000 L — check fu and fut inputs.")
+
     st.write(f"Calculated $V_d$ = {Vd:.2f} L")
 
     # ---------- METABOLISM & ELIMINATION ----------
@@ -114,6 +151,7 @@ with left_col:
         include_renal = st.checkbox("Include renal clearance", value=True, key="include_renal")
         include_hepatic = st.checkbox("Calculate hepatic clearance via $CL_{int}$ and $Q_h$", value=True, key="include_hepatic")
         include_other = st.checkbox("Calculate hepatic clearance by individual enzyme contributions", value=False, key="include_other")
+
         if include_hepatic and include_other:
             st.warning("Cannot select both hepatic intrinsic clearance and other enzymes. Choose one.")
             st.stop()
@@ -186,6 +224,9 @@ with right_col:
     st.header("Simulation Results")
     time = np.linspace(0, t_end, 500)
 
+    run_sim = st.button("▶️ Run Simulation", type="primary")
+
+    # --- Define concentration functions ---
     def conc_iv_bolus(dose, Vd, k, t, tau, n_doses):
         Cp = np.zeros_like(t)
         for n in range(n_doses):
@@ -224,59 +265,62 @@ with right_col:
                 Cp += term * td * np.exp(-k * td) * mask
         return Cp
 
-    if route == "Extravascular (oral/other)" and "bio_method" in st.session_state and st.session_state["bio_method"] == "Calculate F" and Eh is not None:
-        F = Fa * Fg * (1 - Eh)
+    # --- Run simulation when button pressed ---
+    if run_sim:
+        if route == "Extravascular (oral/other)" and "bio_method" in st.session_state and \
+           st.session_state["bio_method"] == "Calculate F" and Eh is not None:
+            F = Fa * Fg * (1 - Eh)
 
-    if route == "IV bolus":
-        Cp = conc_iv_bolus(dose, Vd, k, time, tau, n_doses)
-    elif route == "IV infusion":
-        Cp = conc_iv_infusion(dose, Vd, k, time, tau, n_doses, Tinf)
+        if route == "IV bolus":
+            Cp = conc_iv_bolus(dose, Vd, k, time, tau, n_doses)
+        elif route == "IV infusion":
+            Cp = conc_iv_infusion(dose, Vd, k, time, tau, n_doses, Tinf)
+        else:
+            Cp = conc_extravascular(dose, Vd, k, ka, F, time, tau, n_doses)
+
+        # Save results to session_state so they persist
+        st.session_state["Cp"] = Cp
+        st.session_state["params"] = {
+            "time": time, "k": k, "t_half": t_half, "CL": CL,
+            "F": F, "CL_renal": CL_renal, "route": route,
+            "ka": ka, "n_doses": n_doses, "tau": tau, "t_end": t_end
+        }
+
+    # --- Display results if available ---
+    if "Cp" in st.session_state:
+        Cp = st.session_state["Cp"]
+        p = st.session_state["params"]
+
+        plot_type = st.radio("Select plot type", ["Concentration (Cp)", "ln(Cp)"], key="plot_type")
+        y_data = Cp if plot_type == "Concentration (Cp)" else np.log(np.maximum(Cp, EPS))
+        y_label = "Concentration (mg/L)" if plot_type == "Concentration (Cp)" else "ln(Concentration)"
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=p["time"], y=y_data, mode="lines", name="Central Compartment"))
+        fig.update_layout(
+            title="Concentration–Time Profile",
+            xaxis_title="Time (h)",
+            yaxis_title=y_label,
+            template="plotly_white"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Warnings and metrics
+        if p["route"] == "Extravascular (oral/other)" and p["ka"] is not None and p["ka"] < p["k"]:
+            st.warning("⚠️ Flip-flop kinetics detected ($k_a$ < $k_{el}$).")
+
+        fe_percent = 100 * p["CL_renal"] / p["CL"] if p["CL"] > 0 else 0.0
+        col1, col2 = st.columns(2)
+        col1.metric(r"Elimination rate constant $k_{el}$ (h⁻¹)", f"{p['k']:.3f}")
+        col1.metric(r"Half-life $t_{1/2}$ (h)", "∞" if p["t_half"] == float('inf') else f"{p['t_half']:.3f}")
+        col1.metric(r"Clearance $CL$ (L/h)", f"{p['CL']:.3f}")
+        col1.metric(r"Bioavailability $F$ (%)", f"{p['F']*100:.1f}%")
+        col2.metric("$C_{max}$ (mg/L)", f"{np.max(Cp):.4f}")
+        col2.metric("$T_{max}$ (h)", f"{float(p['time'][np.argmax(Cp)]):.2f}")
+        col2.metric(f"AUC (0–{p['t_end']:.1f} h)", f"{np.trapz(Cp, p['time']):.3f}")
+        col2.metric("Renal clearance fraction (%)", f"{fe_percent:.2f}%")
     else:
-        Cp = conc_extravascular(dose, Vd, k, ka, F, time, tau, n_doses)
+        st.info("Adjust parameters, then click **Run Simulation** to generate results.")
 
-    # ---------- PLOT ----------
-    plot_type = st.radio("Select plot type", ["Concentration (Cp)", "ln(Cp)"], key="plot_type")
-    fig = go.Figure()
-    y_data = Cp if plot_type == "Concentration (Cp)" else np.log(np.maximum(Cp, EPS))
-    y_label = "Concentration (mg/L)" if plot_type == "Concentration (Cp)" else "ln(Concentration)"
-
-    fig.add_trace(go.Scatter(x=time, y=y_data, mode="lines", name="Central Compartment"))
-    fig.update_layout(title="Concentration–Time Profile", xaxis_title="Time (h)", yaxis_title=y_label, template="plotly_white")
-    st.plotly_chart(fig, use_container_width=True)
-
-    if route == "Extravascular (oral/other)" and ka is not None and ka < k:
-        st.warning("⚠️ Flip-flop kinetics detected ($k_a$ < $k_{el}$).")
-
-    fe_percent = 100 * CL_renal / CL if CL > 0 else 0.0
-    col1, col2 = st.columns(2)
-    col1.metric(r"Elimination rate constant $k_{el}$ (h⁻¹)", f"{k:.3f}")
-    col1.metric(r"Half-life $t_{1/2}$ (h)", "∞" if t_half == float('inf') else f"{t_half:.3f}")
-    col1.metric(r"Clearance $CL$ (L/h)", f"{CL:.3f}")
-    col1.metric(r"Bioavailability $F$ (%)", f"{F*100:.1f}%")
-    col2.metric("$C_{max}$ (mg/L)", f"{np.max(Cp):.4f}")
-    col2.metric("$T_{max}$ (h)", f"{float(time[np.argmax(Cp)]):.2f}")
-    col2.metric(f"AUC (0–{t_end:.1f} h)", f"{np.trapz(Cp, time):.3f}")
-    col2.metric("Renal clearance fraction (%)", f"{fe_percent:.2f}%")
-
-st.markdown(
-    """
-    <style>
-    .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: #f0f2f6;
-        color: #333;
-        text-align: center;
-        padding: 5px 0;
-        font-size: 12px;
-        opacity: 0.8;
-    }
-    </style>
-    <div class="footer">
-        &copy; 2025  <a href="https://www.ucc.ie/en/pharmacy/" target="_blank">School of Pharmacy, University College Cork</a>.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# ---------------- FOOTER ----------------
+st.markdown(get_footer_html(), unsafe_allow_html=True)
